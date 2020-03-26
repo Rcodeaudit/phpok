@@ -30,7 +30,7 @@ class select_form extends _init_auto
 		$rslist = $this->model("project")->get_all_project($_SESSION["admin_site_id"]);
 		if($rslist){
 			$p_list = $m_list = array();
-			foreach($rslist AS $key=>$value){
+			foreach($rslist as $key=>$value){
 				if(!$value["parent_id"]){
 					$p_list[] = $value;
 				}
@@ -84,7 +84,7 @@ class select_form extends _init_auto
 			return false;
 		}
 		$is_step = false;
-		foreach($rslist AS $key=>$value){
+		foreach($rslist as $key=>$value){
 			if($value["parent_id"]){
 				$is_step = true;
 				break;
@@ -93,8 +93,14 @@ class select_form extends _init_auto
 		if((!$rs['content'] || !is_array($rs['content'])) && $rs['is_multiple']){
 			$rs['content'] = array();
 		}
+		if(!$rs['is_multiple'] && is_array($rs['content']) && $opt_list[0] == 'opt'){
+			$opt_rs = $this->model('opt')->group_one($opt_list[1]);
+			$symbol = $opt_rs['link_symbol'] ? $opt_rs['link_symbol'] : ',';
+			$rs['content'] = implode($symbol,$rs['content']);
+		}
 		$this->assign("_is_step",$is_step);
 		$this->assign('_group_id',$group_id);
+		$this->assign('_group_type',$opt_list[0]);
 		$this->assign("_rs",$rs);
 		$this->assign("_rslist",$rslist);
 		$file = $appid == 'admin' ? $this->dir_phpok.'form/html/select_admin_tpl.html' : $this->dir_phpok.'form/html/select_www_tpl.html';
@@ -213,6 +219,19 @@ class select_form extends _init_auto
 			$rs['title'] = $tmp['title'];
 		}
 		if($type == 'cate'){
+			//获取分类信息
+			if(strpos($val,',') !== false){
+				$tmplist = $this->model('cate')->catelist_cid($val,false);
+				if(!$tmplist){
+					return false;
+				}
+				$tmp = array('title'=>array(),'val'=>array(),'type'=>$type);
+				foreach($tmplist as $key=>$value){
+					$tmp['title'][$key] = $value['title'];
+					$tmp['val'][$key] = $value['id'];
+				}
+				return $tmp;
+			}
 			$tmp = $this->model('cate')->cate_info($val,false);
 			if(!$tmp || !$tmp['status']){
 				return false;

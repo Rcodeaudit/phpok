@@ -259,8 +259,9 @@ class wealth_model_base extends phpok_model
 	/**
 	 * 充值到账对积分进行转换
 	 * @参数 $logid 支付ID
+	 * @参数 $myval 要充值的数量
 	**/
-	public function recharge($logid)
+	public function recharge($logid,$myval=0)
 	{
 		$order = $this->model('payment')->log_one($logid);
 		if(!$order || !$order['status'] || !$order['user_id']){
@@ -282,6 +283,9 @@ class wealth_model_base extends phpok_model
 		$data['wid'] = $rs['id'];
 		$data['goal_id'] = $order['user_id'];
 		$data['val'] = round($order['price'] * $rs['pay_ratio'],2);
+		if($myval){
+			$data['val'] = $myval;
+		}
 		$data['mid'] = 0;
 		$this->save_log($data);
 		if($data['status']){

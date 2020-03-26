@@ -699,6 +699,28 @@ class order_control extends phpok_control
 		}
 		$this->success();
 	}
+	
+	public function status_f()
+	{
+		$id = $this->get('id','int');
+		$status = $this->get('status');
+		if(!$status){
+			$this->error('未指定订单状态');
+		}
+		$old = $this->model('order')->get_one($id);
+		if(!$old){
+			$this->error(P_Lang('订单信息不存在'));
+		}
+		if($old['status'] == $status){
+			$this->error('订单状态一致，不需要修改');
+		}
+		$main = array('status'=>$status);
+		$statuslist = $this->model('order')->status_list();
+		$main['status_title'] = $statuslist[$main['status']] ? $statuslist[$main['status']] : '';
+		$this->model('order')->save($main,$id);
+		$this->model('order')->update_order_status($id,$main['status'],$main['status_title']);
+		$this->success();
+	}
 
 	private function _save_price($order_id=0)
 	{

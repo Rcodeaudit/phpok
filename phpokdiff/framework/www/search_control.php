@@ -35,7 +35,9 @@ class search_control extends phpok_control
 
 	private function load_search($keywords)
 	{
-		if(!$keywords) return false;
+		if(!$keywords){
+			return false;
+		}
 		//取得符合搜索的项目
 		$condition = "status=1 AND hidden=0 AND is_search !=0 AND module>0";
 		$list = $this->model('project')->project_all($this->site['id'],'id',$condition);
@@ -43,7 +45,7 @@ class search_control extends phpok_control
 			$this->error(P_Lang('您的网站没有允许可以搜索的信息'),$this->url,10);
 		}
 		$pids = $mids = $projects = array();
-		foreach($list AS $key=>$value){
+		foreach($list as $key=>$value){
 			$pids[] = $value["id"];
 			$mids[] = $value['module'];
 			$projects[$value['id']] = $value['identifier'];
@@ -53,7 +55,7 @@ class search_control extends phpok_control
 		$klist = explode(" ",$keywords);
 		$kc = array();
 		$kwlist = array();
-		foreach($klist AS $key=>$value){
+		foreach($klist as $key=>$value){
 			$kwlist[] = '<i>'.$value.'</i>';
 			$kc[] = " l.seo_title LIKE '%".$value."%'";
 			$kc[] = " l.seo_keywords LIKE '%".$value."%'";
@@ -72,7 +74,7 @@ class search_control extends phpok_control
 		$idlist = $this->model('search')->id_list($condition,$offset,$psize);
 		if($idlist){
 			$rslist = array();
-			foreach($idlist AS $key=>$value){
+			foreach($idlist as $key=>$value){
 				$info = $this->call->phpok('_arc',array('title_id'=>$value['id'],'site'=>$this->site['id']));
 				if($info){
 					$info['_title'] = str_replace($klist,$kwlist,$info['title']);
@@ -95,4 +97,3 @@ class search_control extends phpok_control
 		exit;
 	}
 }
-?>

@@ -23,8 +23,9 @@ header("Content-type: text/html; charset=utf-8");
 header("Cache-control: no-cache,no-store,must-revalidate");
 header("Pramga: no-cache"); 
 header("Expires: -1");
+
+//防止被Iframe嵌套
 header("X-Frame-Options: sameorigin");
-//setcookie("phpokcom", "test", null, null, null, null, true);
 
 /**
  * 计算执行的时间
@@ -553,7 +554,11 @@ class _init_phpok
 		}
 		$domain = $this->lib('server')->domain($this->config['get_domain_method']);
 		if(!$domain){
-			$this->_error('无法获取网站域名信息，请检查环境是否支持$_SERVER["SERVER_NAME"]或$_SERVER["HTTP_HOST"]');
+			$tmp = strtoupper($this->config['get_domain_method']) == 'HTTP_HOST' ? 'SERVER_NAME' : 'HTTP_HOST';
+			$domain = $this->lib('server')->domain($tmp);
+			if(!$domain){
+				$this->_error('无法获取网站域名信息，请检查环境是否支持$_SERVER["SERVER_NAME"]或$_SERVER["HTTP_HOST"]');
+			}
 		}
 		$site_rs = $this->model('site')->site_info(($site_id ? $site_id : $domain));
 		if(!$site_rs && $this->app_id == 'www'){
@@ -796,6 +801,21 @@ class _init_phpok
 	{
 		return $this->control($name,$appid);
 	}
+	
+	private function _node($name)
+	{
+		$class_name = $name.'_nodes';
+		if($this->$class_name && is_object($this->$class_name)){
+			return $this->$class_name;
+		}
+		if(!is_file($this->dir_app.$name.'/nodes.php')){
+			return false;
+		}
+		include_once($this->dir_app.$name.'/nodes.php');
+		$tmp = '\phpok\app\\'.$name.'\\nodes_phpok';
+		$this->$class_name = new $tmp();
+		return $this->$class_name;
+	}
 
 	/**
 	 * 按需加载Model信息，所有的文件均放在framework/model/目录下。会根据**app_id**自动加载同名但不同入口的文件
@@ -916,7 +936,7 @@ class _init_phpok
 				$tmp[($i-1)] = $val;
 			}
 			foreach($applist as $key=>$value){
-				$obj = $this->ctrl($key);
+				$obj = $this->_node($key);
 				if($obj && method_exists($obj,$ap)){
 					call_user_func_array(array($obj, $ap),$tmp);
 				}
@@ -924,7 +944,7 @@ class _init_phpok
 			return true;
 		}
 		foreach($applist as $key=>$value){
-			$obj = $this->ctrl($key);
+			$obj = $this->_node($key);
 			if($obj && method_exists($obj,$ap)){
 				$obj->$ap($param);
 			}
@@ -965,6 +985,9 @@ class _init_phpok
 		include($this->dir_phpok.'engine/db/'.$this->config['engine']['db']['file'].'.php');
 		$var = 'db_'.$this->config['engine']['db']['file'];
 		$this->db = new $var($this->config['engine']['db']);
+		if($this->app_id == 'api'){
+			$this->db->error_type = 'json';
+		}
 		
 		foreach($this->config["engine"] as $key=>$value){
 			if($key == 'db'){
@@ -1302,9 +1325,6 @@ class _init_phpok
 		$msg = stripslashes($msg);
 		//格式化处理内容
 		switch ($type){
-			case 'safe':
-				$msg = str_replace(array("\\","'",'"',"<",">"),array("&#92;","&#39;","&quot;","&lt;","&gt;"),$msg);
-			break;
 			case 'safe_text':
 				$msg = strip_tags($msg);
 				$msg = str_replace(array("\\","'",'"',"<",">"),'',$msg);
@@ -1604,7 +1624,7 @@ class _init_phpok
 		if($query_string){
 			$uri = str_replace('?'.$query_string,'',$uri);
 			$data['query'] = $query_string;
-			$get = parse_str($query_string);
+			parse_str($query_string,$get);
 			$this->data('get',$get);
 		}
 		if($uri != '/' && strlen($uri)>2){
@@ -1686,6 +1706,27 @@ class _init_phpok
 				$folder = substr($docu,0,-(strlen($basename)));
 				if($uri && substr($uri,-(strlen($basename))) == $basename){
 					$uri = substr($uri,0,-(strlen($basename)));
+				}
+			}
+			//解决当图片不存在，尝试通过PHP自动创建
+			$tmp = strtolower(substr($uri,-4));
+			if(in_array($tmp,array('.jpg','.gif','.png','jpeg')) && substr($uri,0,11) == 'res/_cache/'){
+				$tmp = substr($uri,11);
+				$tmp = explode("/",$tmp);
+				$gdinfo = $this->model('gd')->get_one($tmp[0],'identifier');
+				if($gdinfo){
+					$tmp = explode('.',$tmp[2]);
+					$res = $this->model('res')->get_one($tmp[0]);
+					if($res){
+						$gdinfo['url'] = $res['filename'];
+						$gdinfo['_id'] = $res['id'];
+						$gdinfo['ext'] = $res['ext'];
+						$gdinfo['folder'] = 'res/_cache/'.$gdinfo['identifier'].'/'.substr($res['id'],0,2).'/';
+						$this->model('res')->img_create($gdinfo);
+						header("Content-type: image/".$res['ext']);
+						echo file_get_contents($this->dir_root.$uri);
+						exit;
+					}
 				}
 			}
 			if($uri && $uri != '/' && $folder && $uri != $folder && !$exit){
@@ -1838,6 +1879,9 @@ class _init_phpok
 		
 		$appfile = $this->dir_app.$ctrl.'/'.$this->app_id.'.control.php';
 		if($appfile && file_exists($appfile)){
+			if(!$apps[$ctrl]){
+				$this->error(P_Lang('应用未安装或未启用'));
+			}
 			$this->_action_phpok5($appfile,$ctrl,$func);
 		}
 		$this->_action_phpok4($ctrl,$func);
@@ -1851,7 +1895,7 @@ class _init_phpok
 		}
 		//加载应用文件
 		if(!file_exists($dir_root.$ctrl.'_control.php')){
-			$this->error_404('应用文件：'.$ctrl.'_control.php 不存在，请检查');
+			$this->error(P_Lang('应用文件 {ctrl}_control.php 不存在，请检查',array("ctrl"=>$ctrl)));
 		}
 		include($dir_root.$ctrl.'_control.php');
 
@@ -1861,7 +1905,7 @@ class _init_phpok
 		$cls = new $app_name();
 		$func_name = $func."_f";
 		if(!in_array($func_name,get_class_methods($cls))){
-			$this->_error("控制器 ".$ctrl." 不存在方法 ".$func_name);
+			$this->error(P_Lang('应用 {ctrl} 不存在方法 {func}',array('ctrl'=>$ctrl,'func'=>$func_name)));
 		}
 		$this->config['ctrl'] = $ctrl;
 		$this->config['func'] = $func;
@@ -1886,7 +1930,7 @@ class _init_phpok
 		$cls = new $name();
 		$func_name = $func."_f";
 		if(!in_array($func_name,get_class_methods($cls))){
-			$this->_error("控制器 ".$ctrl." 不存在方法 ".$func_name);
+			$this->error(P_Lang('应用 {ctrl} 不存在方法 {func}',array('ctrl'=>$ctrl,'func'=>$func_name)));
 		}
 		$this->config['ctrl'] = $ctrl;
 		$this->config['func'] = $func;
@@ -2236,7 +2280,11 @@ class _init_phpok
 			}
 			$file = $action == 'exec' ? 'exec.php' : $action;
 			$rs = $this->gateway['param'];
-			$extinfo = $this->gateway['extinfo'];
+			if($action == 'exec' && $param){
+				$extinfo = $param;
+			}else{
+				$extinfo = $this->gateway['extinfo'];
+			}
 			$exec_file = $this->dir_gateway.''.$this->gateway['param']['type'].'/'.$this->gateway['param']['code'].'/'.$file;
 			$info = false;
 			if(file_exists($exec_file)){

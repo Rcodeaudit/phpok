@@ -42,6 +42,9 @@ class index_control extends phpok_control
 			}
 			$data['wxconfig'] = $wxconfig;
 		}
+		$tmpinfo = $this->site;
+		unset($tmpinfo['api_code']);
+		$data['site'] = $tmpinfo;
 		$this->success($data);
 	}
 
@@ -208,5 +211,25 @@ class index_control extends phpok_control
 			$this->error(P_Lang('未指定生成的二维码数据'));
 		}
 		$this->lib('qrcode')->png($data);
+	}
+	
+	/**
+	 * 分享推荐
+	**/
+	public function share_f()
+	{
+		$uid = $this->get('uid','int');
+		if(!$uid){
+			$this->error(P_Lang('未指定会员'));
+		}
+		$rs = $this->model('user')->get_one($uid,'id',false,false);
+		if(!$rs){
+			$this->error(P_Lang('会员信息不存在'));
+		}
+		if($this->session->val('user_id') == $rs['id']){
+			$this->error(P_Lang('不能给自己推荐'));
+		}
+		$this->session->assign('introducer',$uid);
+		$this->success();
 	}
 }

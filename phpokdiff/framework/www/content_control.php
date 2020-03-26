@@ -69,7 +69,7 @@ class content_control extends phpok_control
 		//如果未绑定网址
 		if(!$rs['url']){
 			$url_id = $rs['identifier'] ? $rs['identifier'] : $rs['id'];
-			$tmpext = '&project='.$project['identifier'];
+			$tmpext = 'project='.$project['identifier'];
 			if($project['cate'] && $rs['cate_id']){
 				$tmpext.= '&cateid='.$rs['cate_id'];
 			}
@@ -138,6 +138,9 @@ class content_control extends phpok_control
 		$this->model('list')->add_hits($rs["id"]);
 		$rs['hits'] = $this->model('list')->get_hits($rs['id']);
 		$this->phpok_seo($rs);
+		$this->data('arc',$rs);
+		$this->node('PHPOK_arc');
+		$rs = $this->data('arc');
 		$this->assign("rs",$rs);
 		//判断这个主题是否支持评论及评论验证码
 		if($project['comment_status']){

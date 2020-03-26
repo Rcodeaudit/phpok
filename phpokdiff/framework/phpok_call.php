@@ -203,7 +203,7 @@ class phpok_call extends _init_auto
 		$this->model('list')->multiple_cate(0);
 		if($project['cate']){
 			$this->model('list')->multiple_cate($project['cate_multiple']);
-		}		
+		}
 		if($project['cate'] || $rs['cateid']){
 			$cateid = $rs['cateid'] ? $rs['cateid'] : $project['cate'];
 			$cate = $this->_cate(array("pid"=>$rs['pid'],"cateid"=>$cateid,'site'=>$rs['site']));
@@ -314,7 +314,8 @@ class phpok_call extends _init_auto
 			unset($list);
 		}
 		$this->data('rslist',$rslist);
-		$this->node('PHPOK_arclist',$rslist,$array['project']['id']);
+		$this->data('pid',$array['project']['id']);
+		$this->node('PHPOK_arclist');
 		$rslist = $this->data('rslist');
 		if(!$rs['is_list']){
 			$array['rs'] = current($rslist);
@@ -521,23 +522,33 @@ class phpok_call extends _init_auto
 			if($tmp['type'] == 'cate') $rs['cateid'] = $tmp['id'];
 		}
 		if($rs['cateid']){
-			$cate_all = $this->model('cate')->cate_all($rs['site']);
-			$array = array($rs['cateid']);
-			$this->model('cate')->cate_ids($array,$rs['cateid'],$cate_all);
-			if($project && $project['cate']){
+			if(strpos($rs['cateid'],',') !== false){
 				if($project['cate_multiple']){
-					$condition .= " AND lc.cate_id IN(".implode(",",$array).") ";
+					$condition .= " AND lc.cate_id IN(".$rs['cateid'].") ";
 				}else{
-					$condition .= " AND l.cate_id IN(".implode(",",$array).") ";
+					$condition .= " AND l.cate_id IN(".$rs['cateid'].") ";
 				}
 			}else{
-				$condition .= " AND (lc.cate_id IN(".implode(",",$array).") OR l.cate_id IN(".implode(",",$array).")) ";
+				$cate_all = $this->model('cate')->cate_all($rs['site']);
+				$array = array($rs['cateid']);
+				$this->model('cate')->cate_ids($array,$rs['cateid'],$cate_all);
+				if($project && $project['cate']){
+					if($project['cate_multiple']){
+						$condition .= " AND lc.cate_id IN(".implode(",",$array).") ";
+					}else{
+						$condition .= " AND l.cate_id IN(".implode(",",$array).") ";
+					}
+				}else{
+					$condition .= " AND (lc.cate_id IN(".implode(",",$array).") OR l.cate_id IN(".implode(",",$array).")) ";
+				}
 			}
 			unset($cate_all,$array);
 		}
 		//绑定某个会员
 		if($rs['user_id']){
-			if(is_array($rs['user_id'])) $rs['user_id'] = implode(",",$rs['user_id']);
+			if(is_array($rs['user_id'])){
+				$rs['user_id'] = implode(",",$rs['user_id']);
+			}
 			$condition .= strpos($rs['user_id'],",") === false ? " AND l.user_id='".$rs['user_id']."'" : " AND l.user_id IN(".$rs['user_id'].")";
 		}
 		if($rs['attr']){
@@ -757,6 +768,9 @@ class phpok_call extends _init_auto
 		if(!$arc['module_id']){
 			$url_id = $arc['identifier'] ? $arc['identifier'] : $arc['id'];
 			$arc['url'] = $this->url($url_id,'','project='.$project['identifier'],'www');
+			$this->data('arc',$arc);
+			$this->node('PHPOK_arc');
+			$arc = $this->data('arc');
 			return $arc;
 		}
 		//读取这个主题可能涉及到的Tag
@@ -765,6 +779,9 @@ class phpok_call extends _init_auto
 		if(!$flist){
 			$url_id = $arc['identifier'] ? $arc['identifier'] : $arc['id'];
 			$arc['url'] = $this->url($url_id,'','project='.$project['identifier'],'www');
+			$this->data('arc',$arc);
+			$this->node('PHPOK_arc');
+			$arc = $this->data('arc');
 			return $arc;
 		}
 		$taglist = array('tag'=>$arc['tag'],'list'=>array('title'=>$arc['title']));
@@ -810,6 +827,9 @@ class phpok_call extends _init_auto
 		//读取分类树
 		$arc['_catelist'] = $this->model('cate')->ext_catelist($arc['id']);
 		if(!$arc['_catelist']){
+			$this->data('arc',$arc);
+			$this->node('PHPOK_arc');
+			$arc = $this->data('arc');
 			return $arc;
 		}
 		$cate['url'] = $this->url($project['identifier'],$cate['identifier'],'','www');
@@ -823,6 +843,9 @@ class phpok_call extends _init_auto
 			foreach($arc['_catelist'] as $key=>$value){
 				$arc['_catelist'][$key]['url'] = $this->url($project['identifier'],$value['identifier'],'','www');
 			}
+			$this->data('arc',$arc);
+			$this->node('PHPOK_arc');
+			$arc = $this->data('arc');
 			return $arc;
 		}
 		//执行
@@ -838,6 +861,9 @@ class phpok_call extends _init_auto
 			}
 			$arc['_catelist'][$k] = $tmp;
 		}
+		$this->data('arc',$arc);
+		$this->node('PHPOK_arc');
+		$arc = $this->data('arc');
 		return $arc;
 	}
 

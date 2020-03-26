@@ -220,6 +220,7 @@ class list_control extends phpok_control
 			$this->error(P_Lang('名称不能为空'));
 		}
 		$array = array("title"=>$title);
+		$array['style'] = $this->get('style');
 		$array["seo_title"] = $this->get("seo_title");
 		$array["seo_keywords"] = $this->get("seo_keywords");
 		$array["seo_desc"] = $this->get("seo_desc");
@@ -351,9 +352,10 @@ class list_control extends phpok_control
 		$layout = $m_list = array();
 		$m_rs = $this->model('module')->get_one($mid);
 		$m_list = $this->model('module')->fields_all($mid,"identifier");
-		if($m_rs["layout"]) $layout = explode(",",$m_rs["layout"]);
+		if($m_rs["layout"]){
+			$layout = explode(",",$m_rs["layout"]);
+		}
 		$this->assign("m_rs",$m_rs);
-		//布局
 		$layout_list = array();
 		foreach($layout as $key=>$value){
 			if($value == "hits"){
@@ -373,7 +375,9 @@ class list_control extends phpok_control
 		if($project_rs['psize'] && $project_rs['psize'] > $psize){
 			$psize = $project_rs['psize'];
 		}
-		if(!$this->config["pageid"]) $this->config["pageid"] = "pageid";
+		if(!$this->config["pageid"]){
+			$this->config["pageid"] = "pageid";
+		}
 		$pageid = $this->get($this->config["pageid"],"int");
 		if(!$pageid){
 			$pageid = 1;
@@ -384,6 +388,16 @@ class list_control extends phpok_control
 		$keywords = $this->get('keywords');
 		if($keywords){
 			$this->assign('keywords',$keywords);
+		}
+		if($keywords && $keywords['id'] && intval($keywords['id'])){
+			if($keywords['_id'] == 1){
+				$condition .= " AND l.id>".intval($keywords['id'])." ";
+			}elseif($keywords['_id'] == 2){
+				$condition .= " AND l.id<".intval($keywords['id'])." ";
+			}else{
+				$condition .= " AND l.id=".intval($keywords['id'])." ";
+			}
+			$pageurl .= "&keywords[id]=".$keywords['id']."&keywords[_id]=".$keywords['_id'];
 		}
 		if($keywords && $keywords['cateid'] && $project_rs['cate']){
 			$cate_rs = $this->model('cate')->get_one($keywords['cateid']);
@@ -544,8 +558,10 @@ class list_control extends phpok_control
 			$this->assign("pagelist",$pagelist);
 			$this->assign("rslist",$rslist);
 		}
-		$attrlist = $this->model('list')->attr_list();
-		$this->assign("attrlist",$attrlist);
+		if($project_rs['is_attr']){
+			$attrlist = $this->model('list')->attr_list();
+			$this->assign("attrlist",$attrlist);
+		}
 		return true;
 	}
 
@@ -650,11 +666,11 @@ class list_control extends phpok_control
 		$this->popedom_auto($pid);
 		$popedom_id = $id ? 'modify' : 'add';
 		if(!$this->popedom[$popedom_id]){
-			error(P_Lang('您没有权限执行此操作'),'','error');
+			$this->error(P_Lang('您没有权限执行此操作'));
 		}
 		$p_rs = $this->model('project')->get_one($pid);
 		if(!$p_rs){
-			error(P_Lang('操作异常'),$this->url("list"),"error");
+			$this->error(P_Lang('项目不存在'));
 		}
 		$m_rs = $this->model('module')->get_one($p_rs["module"]);
 		//读取扩展属性
@@ -666,7 +682,7 @@ class list_control extends phpok_control
 				$value = array_merge($value,($ext ? $ext : array()));
 			}
 			$idlist[] = strtolower($value["identifier"]);
-			if($rs[$value["identifier"]]){
+			if($rs[$value["identifier"]] != ''){
 				$value["content"] = $rs[$value["identifier"]];
 			}
 			$extlist[] = $this->lib('form')->format($value);
@@ -844,15 +860,16 @@ class list_control extends phpok_control
 		if(!$p_rs){
 			$this->json(P_Lang('操作异常，无法取得项目信息'));
 		}
+		$_autosave = $this->get('_autosave','int');
 		$array = array();
 		$title = $this->get("title");
-		if(!$title){
+		if($title == ''){
 			$this->json(P_Lang('内容的主题不能为空'));
 		}
 		$array["title"] = $title;
 		if($p_rs['cate']){
 			$cate_id = $this->get("cate_id","int");
-			if(!$cate_id){
+			if(!$cate_id && !$_autosave){
 				$this->json(P_Lang('主分类不能为空'));
 			}
 			$array["cate_id"] = $cate_id;
@@ -861,7 +878,7 @@ class list_control extends phpok_control
 		}
 		//更新标识串
  		$array['identifier'] = $this->get("identifier");
- 		if(!$array['identifier'] && $p_rs['is_identifier'] == 2){
+ 		if(!$array['identifier'] && $p_rs['is_identifier'] == 2 && !$_autosave){
 	 		$this->json(P_Lang('自定义标识不能为空，此项是系统设置必填项'));
  		}
  		if($array['identifier']){
@@ -882,7 +899,7 @@ class list_control extends phpok_control
 			if($array["tag"]){
 				$array["tag"] = preg_replace("/(\x20{2,})/"," ",$array["tag"]);
 			}
-			if(!$array['tag'] && $p_rs['is_tag'] == 2){
+			if(!$array['tag'] && $p_rs['is_tag'] == 2 && !$_autosave){
 				$this->json(P_Lang('Tag标签不能为空'));
 			}
 		}else{
@@ -890,13 +907,13 @@ class list_control extends phpok_control
 		}
 		if($p_rs['is_userid']){
 			$array['user_id'] = $this->get('user_id','int');
-			if(!$array['user_id'] && $p_rs['is_userid'] == 2){
+			if(!$array['user_id'] && $p_rs['is_userid'] == 2 && !$_autosave){
 				$this->json(P_Lang('会员账号不能为空'));
 			}
 		}
 		if($p_rs['is_tpl_content']){
 			$array['tpl'] = $this->get('tpl');
-			if(!$array['tpl'] && $p_rs['is_tpl_content'] == 2){
+			if(!$array['tpl'] && $p_rs['is_tpl_content'] == 2 && !$_autosave){
 				$this->json(P_Lang('自定义内容模板不能为空'));
 			}
 		}else{
@@ -912,24 +929,30 @@ class list_control extends phpok_control
 			$array["status"] = $this->get("status","int");
 		}
 		$array["hidden"] = $this->get("hidden","int");
-		$crontab = 0;
-		if($dateline > $this->time && $array['status']){
-			$array['hidden'] = 2;
-			//加入定时取消操作
-			$crontab = $dateline;
+		if($_autosave){
+			$array["status"] = 0;
+			$array['hidden'] = 0;
+		}
+		if(!$_autosave){
+			$crontab = 0;
+			if($dateline > $this->time && $array['status']){
+				$array['hidden'] = 2;
+				//加入定时取消操作
+				$crontab = $dateline;
+			}
 		}
 		$array["hits"] = $this->get("hits","int");
 		$array["sort"] = $this->get("sort","int");
 		$array["seo_title"] = $this->get("seo_title");
 		$array["seo_keywords"] = $this->get("seo_keywords");
 		$array["seo_desc"] = $this->get("seo_desc");
-		if(!$array["seo_title"] && $p_rs['is_seo'] == 3){
+		if(!$array["seo_title"] && $p_rs['is_seo'] == 3 && !$_autosave){
 			$this->json(P_Lang('SEO标题不能为空'));
 		}
-		if(!$array["seo_keywords"] && $p_rs['is_seo'] == 3){
+		if(!$array["seo_keywords"] && $p_rs['is_seo'] == 3 && !$_autosave){
 			$this->json(P_Lang('SEO关键字不能为空'));
 		}
-		if(!$array["seo_desc"] && $p_rs['is_seo'] == 3){
+		if(!$array["seo_desc"] && $p_rs['is_seo'] == 3 && !$_autosave){
 			$this->json(P_Lang('SEO描述不能为空'));
 		}
 		
@@ -937,6 +960,7 @@ class list_control extends phpok_control
 		$array["module_id"] = $p_rs["module"];
 		$array["site_id"] = $p_rs["site_id"];
 		$array['integral'] = $this->get('integral','int');
+		$array['style'] = $this->get('style');
 		$tmpadd = false;
 		if(!$id){
 			$id = $this->model('list')->save($array);
@@ -1045,7 +1069,7 @@ class list_control extends phpok_control
 			$this->model('wealth')->add_integral($id,$array['user_id'],'post',P_Lang('管理员编辑主题发布#{id}',array('id'=>$id)));
 		}
 		$this->plugin('system_admin_title_success',$id,$p_rs);
- 		$this->json(true);
+ 		$this->json($id,true);
 	}
 
 	public function single_save_f()

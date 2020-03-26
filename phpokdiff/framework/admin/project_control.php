@@ -322,6 +322,7 @@ class project_control extends phpok_control
 		$array["admin_note"] = $this->get("admin_note","html");
 		$array['post_status'] = $this->get('post_status','checkbox');
 		$array['comment_status'] = $this->get('comment_status','checkbox');
+		$array['is_front'] = $this->get('is_front','checkbox');
 		$array['post_tpl'] = $this->get('post_tpl');
 		$array['etpl_admin'] = $this->get('etpl_admin');
 		$array['etpl_user'] = $this->get('etpl_user');
@@ -336,6 +337,7 @@ class project_control extends phpok_control
 		$array['biz_attr'] = $this->get('biz_attr');
 		$array['freight'] = $this->get('freight');
 		$array['list_fields'] = $this->get('list_fields');
+		$array['style'] = $this->get('style');
 		$ok_url = $this->url("project");
 		$c_rs = $this->model('sysmenu')->get_one_condition("appfile='list' AND parent_id>0");
 		$gid = $c_rs["id"];

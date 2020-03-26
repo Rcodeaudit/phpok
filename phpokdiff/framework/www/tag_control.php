@@ -47,7 +47,7 @@ class tag_control extends phpok_control
 			exit;
 		}
 		$rslist = false;
-		foreach($idlist AS $key=>$value){
+		foreach($idlist as $key=>$value){
 			if(substr($value['id'],0,1) == 'p'){
 				$tmp = substr($value['id'],1);
 				$rslist[] = $this->call->phpok('_project',array('pid'=>$tmp));
@@ -55,7 +55,8 @@ class tag_control extends phpok_control
 				$tmp = substr($value['id'],1);
 				$cate_rs = $this->model('cate')->get_one($tmp,$this->site['id']);
 				if($cate_rs['parent_id']){
-					$root_cate_id = $this->model('cate')->get_root_id($cate_rs['parent_id']);
+					$root_cate_id = $cate_rs['parent_id'];
+					$this->model('cate')->get_root_id($root_cate_id,$cate_rs['parent_id']);
 				}else{
 					$root_cate_id = $cate_rs['id'];
 				}
